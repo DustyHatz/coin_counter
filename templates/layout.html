@@ -45,6 +45,15 @@
             <a class="navbar-brand" href="/" style="margin: auto;"><span class="text-success">Coin Counter</span></a>
         </nav>
 
+        <!--Get any flash messages and display in an alert (if javascript is disabled)-->
+        {% for message in get_flashed_messages() %}
+            <header>
+                <div class="alert alert-danger border text-center" role="alert">
+                    {{ message }}
+                </div>
+            </header>
+        {% endfor %}
+
         <main class="container p-5">
             {% block main %}{% endblock %}
         </main>

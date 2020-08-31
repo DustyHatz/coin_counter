@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Coin Counter
+{% endblock %}
+
+{% block main %}
+
+    <!--From to collect the dollar amount entered by user-->
+    <div style="text-align: center;">
+        <div>
+            <form action="/count_coins" method="post" class="needs-validation" novalidate>
+                <label class="col-xs-2">
+                    <input autocomplete="off" autofocus class="form-control" name="amount" placeholder="Enter Amount $" type="number" step="0.01" min="0" required>
+                    <div class="invalid-feedback">
+                        Please provide a valid dollar amount <i>(ex. 1.50)</i>
+                    </div>
+                </label>
+                <div class="form-buttons">
+                    <button class="btn btn-success" name="submit" type="submit">Calculate</button>
+                </div>
+            </form>
+        </div>
+
+        <!--Reset button to set table counts back to zero-->
+        <div style="margin-top: 5px">
+            <form action="/">
+                <div>
+                    <button class="btn btn-warning" name="reset" type="submit">Reset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <br>
+
+    <!--Display amount entered by user-->
+    <p style="text-align: center">{{ cents_str }}</p>
+
+    <!--Display coins table-->
+    {{ table|safe }}
+
+
+{% endblock %}

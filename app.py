@@ -1,4 +1,7 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, flash, render_template, request, redirect
+from werkzeug.exceptions import default_exceptions, HTTPException, InternalServerError
+from flask_session import Session
+from tempfile import mkdtemp
 import pandas as pd
 
 # Must be named "application" for AWS deployment to work properly
@@ -7,16 +10,22 @@ app = Flask(__name__)
 # Ensure templates are auto-reloaded
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
-# Declare coins dict and initialize counts to zero (0)
+# Configure session to use filesystem (instead of signed cookies)
+app.config["SESSION_FILE_DIR"] = mkdtemp()
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
+Session(app)
+
+# Create coins dict and set initial counts to zero (0)
 coins = {'Coins': ['Silver Dollar', 'Half Dollar', 'Quarter', 'Dime', 'Nickel', 'Penny'],
          'Values': [1.00, .50, .25, .10, .05, .01],
          'Count': [0, 0, 0, 0, 0, 0]}
 
-
+# Index route
 @app.route('/')
 def index():
     
-    # Reset count of coins to be zero
+    # Reset coin counts to zero
     coins['Count'][0] = 0
     coins['Count'][1] = 0
     coins['Count'][2] = 0
@@ -34,39 +43,48 @@ def index():
     return render_template('index.html', table=coins_html)
 
 
+# Calculate number of coins and display in table format
 @app.route('/count_coins', methods=['GET', 'POST'])
 def count_coins():
     
-    # Ensure the form was submitted via the "Submit" button
-    if request.method == 'POST' and 'submit' in request.form:
+    # Ensure user reached route via POST (as by submitting a form via POST)
+    if request.method == 'POST': 
         
-        # Get dollar amount from user
-        cents_dec = request.form.get('amount')
+        # If form is invalid send flash message and redirect to index (if javascript is disabled)
+        if not request.form.get('amount'):
+            flash('Please enter a valid dollar amount (ex: 1.50)')
+            return redirect('/')
         
-        # Build the output string displaying the entered amount
-        cents_str = 'Amount: $' + cents_dec
+        # If form submitted via the "Submit" button
+        if 'submit' in request.form:
         
-        # Convert decimal amount to whole number for calculations below
-        cents = int(float(cents_dec) * 100)
+            # Get dollar amount from user
+            cents_dec = request.form.get('amount')
+            
+            # Build the output string displaying the entered amount
+            cents_str = 'Amount: $' + cents_dec
+            
+            # Convert decimal amount to whole number for calculations below
+            cents = int(float(cents_dec) * 100)
 
-        # Calculate and update the count for each coin
-        coins['Count'][0] = cents // 100  # Silver Dollar
-        coins['Count'][1] = (cents % 100) // 50  # Half Dollar
-        coins['Count'][2] = ((cents % 100) % 50) // 25  # Quarter
-        coins['Count'][3] = (((cents % 100) % 50) % 25) // 10  # Dime
-        coins['Count'][4] = ((((cents % 100) % 50) % 25) % 10) // 5  # Nickel
-        coins['Count'][5] = (((((cents % 100) % 50) % 25) % 10) % 5)  # Penny
+            # Calculate and update the count for each coin
+            coins['Count'][0] = cents // 100  # Silver Dollar
+            coins['Count'][1] = (cents % 100) // 50  # Half Dollar
+            coins['Count'][2] = ((cents % 100) % 50) // 25  # Quarter
+            coins['Count'][3] = (((cents % 100) % 50) % 25) // 10  # Dime
+            coins['Count'][4] = ((((cents % 100) % 50) % 25) % 10) // 5  # Nickel
+            coins['Count'][5] = (((((cents % 100) % 50) % 25) % 10) % 5)  # Penny
+            
+            # Convert updated coins dict to dataframe
+            coins_df = pd.DataFrame.from_dict(coins, orient='columns')
+            
+            # Convert the dataframe to HTML table with centered text
+            coins_html = coins_df.to_html(index=False, classes='table table-striped', columns=['Coins', 'Count']).replace('<tr style="text-align: right;">', '<tr style="text-align: center;">').replace('<tbody>', '<tbody style="text-align: center;">')
+            
+            # Display index.html page with updated coin counts
+            return render_template('index.html', cents_str=cents_str, table=coins_html)
         
-        # Convert updated dict to dataframe
-        coins_df = pd.DataFrame.from_dict(coins, orient='columns')
-        
-        # Convert the dataframe to HTML table with centered text
-        coins_html = coins_df.to_html(index=False, classes='table table-striped', columns=['Coins', 'Count']).replace('<tr style="text-align: right;">', '<tr style="text-align: center;">').replace('<tbody>', '<tbody style="text-align: center;">')
-        
-        # Display index.html page and updated coins table
-        return render_template('index.html', cents_str=cents_str, table=coins_html)
-    
-    # If form submitted via the "Reset" button redirect to index method which resets the counts.
-    elif request.method == 'POST' and 'reset' in request.form:
-        
-        return redirect('/')
+        # If form submitted via the "Reset" button redirect to index method which resets the counts.
+        if 'reset' in request.form:
+            
+            return redirect('/')
